@@ -4,111 +4,164 @@
 
 O projeto implementa um servidor de arquivos e um cliente utilizando sockets TCP e apenas bibliotecas padrão do Java.
 
+O cliente envia ao servidor uma requisição textual para obter um arquivo. O servidor verifica se o arquivo solicitado existe e, em caso positivo, envia seu conteúdo através da conexão TCP.
+
 ## Requisitos
 
 - JDK instalado
 - `java` e `javac` disponíveis no PATH
 
-Para verificar:
+Para verificar a instalação:
 
 ```bash
 java -version
 javac -version
 ```
 
-## Estrutura
+Não são necessárias bibliotecas ou dependências externas.
+
+## Arquivos entregues
+
+Os códigos-fonte da implementação são:
+
+```text
+Server.java
+Client.java
+```
+
+As pastas utilizadas durante a execução não precisam estar presentes previamente na entrega.
+
+## Preparação
+
+Antes de executar o servidor, crie uma pasta chamada `arquivos` no mesmo diretório em que estão `Server.java` e `Client.java`.
+
+A estrutura deve ficar semelhante a:
 
 ```text
 t1_redes/
 |-- Server.java
 |-- Client.java
-|-- arquivos/
-|   `-- teste.txt
-`-- downloads/
+`-- arquivos/
 ```
 
-A pasta `arquivos` contém os arquivos disponibilizados pelo servidor. Para disponibilizar um arquivo, ele deve ser colocado dentro dessa pasta antes da requisição do cliente.
+Coloque dentro da pasta `arquivos` os arquivos que deseja disponibilizar para o cliente.
 
-A pasta `downloads` é criada automaticamente pelo cliente quando necessário e armazena os arquivos recebidos.
+Por exemplo, para disponibilizar um arquivo chamado `teste.txt`:
+
+```text
+t1_redes/
+|-- Server.java
+|-- Client.java
+`-- arquivos/
+    `-- teste.txt
+```
+
+Não é necessário criar a pasta `downloads`. Ela será criada automaticamente pelo cliente quando necessário e armazenará os arquivos recebidos.
 
 ## Compilação
 
-No terminal, dentro da pasta do projeto, execute:
+No terminal, dentro do diretório em que estão os arquivos do projeto, execute:
 
 ```bash
 javac Server.java Client.java
 ```
 
-Esse comando compila os dois arquivos-fonte e gera `Server.class` e `Client.class`.
+O comando gera os arquivos compilados:
 
-Sempre que o código-fonte for alterado, é necessário compilá-lo novamente antes da execução.
+```text
+Server.class
+Client.class
+```
+
+Caso os códigos-fonte sejam alterados, eles devem ser compilados novamente antes da execução.
 
 ## Execução do servidor
 
-O servidor recebe o endereço IP e a porta como argumentos:
+O servidor recebe dois argumentos:
+
+```text
+IP porta
+```
+
+Para iniciá-lo:
 
 ```bash
 java Server <IP> <porta>
 ```
 
-Para executar localmente utilizando a porta 5000:
+Exemplo para execução local utilizando a porta 5000:
 
 ```bash
 java Server 127.0.0.1 5000
 ```
 
-Após ser iniciado, o servidor permanece aguardando conexões.
+Após a inicialização, o servidor permanece aguardando conexões.
 
-Os arquivos que poderão ser solicitados pelos clientes devem estar na pasta `arquivos`.
+Os arquivos que poderão ser solicitados pelos clientes devem estar dentro da pasta `arquivos`.
 
 ## Execução do cliente
 
-Com o servidor em execução, abra outro terminal na pasta do projeto e execute:
+Com o servidor em execução, abra outro terminal no mesmo diretório.
+
+O cliente recebe três argumentos:
+
+```text
+IP porta nome-do-arquivo
+```
+
+Para executá-lo:
 
 ```bash
 java Client <IP> <porta> <nome-do-arquivo>
 ```
 
-Por exemplo, para solicitar `teste.txt` ao servidor local:
+Por exemplo, se existir o arquivo:
+
+```text
+arquivos/teste.txt
+```
+
+execute:
 
 ```bash
 java Client 127.0.0.1 5000 teste.txt
 ```
 
-O cliente envia a requisição ao servidor e, se o arquivo existir, salva o conteúdo recebido na pasta `downloads`.
-
-Por exemplo:
+Se a transferência for concluída com sucesso, o cliente criará automaticamente a pasta `downloads` e salvará o arquivo recebido nela:
 
 ```text
-arquivos/teste.txt     -> arquivo disponibilizado pelo servidor
-downloads/teste.txt    -> arquivo recebido pelo cliente
+downloads/teste.txt
 ```
 
 ## Execução entre duas máquinas
 
-Para executar o projeto entre duas máquinas na mesma rede, o servidor deve ser iniciado utilizando um endereço IP da máquina em que está sendo executado.
+Para executar o cliente e o servidor em máquinas diferentes, deve ser utilizado o endereço IP da máquina em que o servidor está sendo executado.
 
-Por exemplo:
+Por exemplo, supondo que o endereço da máquina do servidor seja `192.168.0.10`, o servidor pode ser iniciado com:
 
 ```bash
 java Server 192.168.0.10 5000
 ```
 
-Na outra máquina, o cliente deve utilizar esse mesmo endereço para se conectar:
+Na máquina do cliente:
 
 ```bash
 java Client 192.168.0.10 5000 teste.txt
 ```
 
-O endereço IP utilizado no exemplo é apenas ilustrativo. Deve ser substituído pelo endereço real da máquina que executa o servidor.
+O endereço `192.168.0.10` acima é apenas um exemplo e deve ser substituído pelo endereço IP real da máquina que executa o servidor.
 
-A conexão entre máquinas também depende das configurações da rede e do firewall permitirem conexões TCP na porta utilizada.
+A comunicação entre máquinas depende também das configurações da rede e do firewall permitirem conexões TCP na porta escolhida.
 
-Para testes em uma única máquina, pode ser utilizado `127.0.0.1`.
+Para executar cliente e servidor na mesma máquina, pode ser utilizado o endereço de loopback:
+
+```text
+127.0.0.1
+```
 
 ## Protocolo
 
-O cliente envia uma requisição textual no formato:
+O cliente envia ao servidor uma requisição textual no formato:
 
 ```text
 GET nome-do-arquivo
@@ -120,9 +173,9 @@ Quando o arquivo existe, o servidor responde primeiro com:
 OK <tamanho-em-bytes>
 ```
 
-e em seguida envia exatamente a quantidade informada de bytes do arquivo.
+e, em seguida, envia exatamente a quantidade informada de bytes do arquivo.
 
-Quando o arquivo não existe, o servidor responde:
+Quando o arquivo solicitado não existe, o servidor responde:
 
 ```text
 ERROR FILE_NOT_FOUND
@@ -134,11 +187,17 @@ Uma requisição inválida recebe:
 ERROR INVALID_REQUEST
 ```
 
-A indicação `OK` ou `ERROR` permite que o cliente diferencie uma resposta de controle do conteúdo do próprio arquivo.
+A separação entre a resposta de controle e os dados permite que o cliente diferencie uma mensagem de erro do conteúdo do próprio arquivo.
+
+## Transferência de arquivos
+
+Os arquivos são lidos e enviados em blocos utilizando um buffer de 8192 bytes. Dessa forma, arquivos grandes podem ser transferidos sem a necessidade de carregar todo o seu conteúdo na memória.
+
+O cliente também realiza sucessivas leituras da conexão até receber a quantidade de bytes informada pelo servidor.
 
 ## Testes realizados
 
-A implementação foi testada utilizando o endereço `127.0.0.1` e a porta `5000`.
+A implementação foi testada localmente utilizando o endereço `127.0.0.1` e a porta `5000`.
 
 Foram realizados os seguintes testes:
 
@@ -148,12 +207,10 @@ Foram realizados os seguintes testes:
 4. Transferência de um arquivo de 54.977 bytes, recebido em 7 leituras.
 5. Transferência de um arquivo de 10 MB (10.485.760 bytes), recebido em 1280 leituras.
 6. Tentativa de iniciar duas instâncias do servidor em `127.0.0.1:5000`, resultando em `Address already in use: bind`.
-7. Transferência de um arquivo cujo conteúdo era literalmente `ERROR FILE_NOT_FOUND`, confirmando que o conteúdo não é confundido com a resposta de erro do protocolo.
+7. Transferência de um arquivo cujo conteúdo era literalmente `ERROR FILE_NOT_FOUND`, confirmando que o conteúdo do arquivo não é confundido com uma resposta de erro do protocolo.
 
 ## Observações
 
 O servidor permanece ativo após cada transferência e pode atender novas conexões sucessivamente.
 
 Nesta implementação, cada conexão é processada por vez. Não foram utilizadas threads para atendimento concorrente de clientes.
-
-Os arquivos são transferidos em blocos utilizando um buffer de 8192 bytes, permitindo a transferência de arquivos maiores sem a necessidade de carregar todo o conteúdo do arquivo na memória.
