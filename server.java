@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 
 public class Server {
 
@@ -11,64 +12,165 @@ public class Server {
         }
 
         String ip = args[0];
-        int porta = Integer.parseInt(args[1]);
+        int porta;
+
+        try {
+            porta = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            System.out.println("Erro: a porta deve ser um numero inteiro.");
+            return;
+        }
 
         try {
             InetAddress endereco = InetAddress.getByName(ip);
-
-            ServerSocket serverSocket =
-                    new ServerSocket(porta, 50, endereco);
+            ServerSocket servidor = new ServerSocket(porta, 50, endereco);
 
             System.out.println(
-                    "Servidor iniciado em " + ip + ":" + porta
-            );
+                    "Servidor TCP em " + ip + ":" + porta);
+            System.out.println("Aguardando conexoes...\n");
 
-            System.out.println("Aguardando cliente...");
+            while (true) {
 
-            Socket cliente = serverSocket.accept();
+                Socket cliente = servidor.accept();
 
-            System.out.println(
-                    "Cliente conectado: " + cliente.getInetAddress()
-            );
+                System.out.println(
+                        "Cliente: "
+                                + cliente.getInetAddress().getHostAddress()
+                                + ":"
+                                + cliente.getPort());
 
-            BufferedReader leitor = new BufferedReader(
-                    new InputStreamReader(cliente.getInputStream())
-            );
+                try {
+                    BufferedReader leitor = new BufferedReader(
+                            new InputStreamReader(
+                                    cliente.getInputStream(),
+                                    StandardCharsets.UTF_8));
 
-            String requisicao = leitor.readLine();
+                    OutputStream saida = cliente.getOutputStream();
 
-            System.out.println("Requisição recebida: " + requisicao);
+                    String requisicao = leitor.readLine();
 
-            String[] partes = requisicao.split(" ", 2);
+                    if (requisicao == null) {
+                        cliente.close();
+                        System.out.println("Conexao encerrada.\n");
+                        System.out.println("Aguardando conexoes...\n");
+                        continue;
+                    }
 
-            if (partes.length != 2 || !partes[0].equals("GET")) {
-                System.out.println("Requisição inválida.");
+                    System.out.println("> " + requisicao);
+
+                    String[] partes = requisicao.split(" ", 2);
+
+                    if (partes.length != 2
+                            || !partes[0].equals("GET")
+                            || partes[1].isBlank()) {
+
+                        String resposta = "ERROR INVALID_REQUEST\n";
+
+                        saida.write(
+                                resposta.getBytes(StandardCharsets.UTF_8));
+                        saida.flush();
+
+                        System.out.println("Requisicao invalida.");
+
+                        cliente.close();
+
+                        System.out.println();
+                        System.out.println("Aguardando conexoes...\n");
+                        continue;
+                    }
+
+                    String nomeArquivo = partes[1];
+
+                    File pasta = new File("arquivos");
+                    File arquivo = new File(pasta, nomeArquivo);
+
+                    File pastaCanonica = pasta.getCanonicalFile();
+                    File arquivoCanonico = arquivo.getCanonicalFile();
+
+                    if (!arquivoCanonico.toPath().startsWith(
+                            pastaCanonica.toPath())) {
+
+                        String resposta = "ERROR INVALID_REQUEST\n";
+
+                        saida.write(
+                                resposta.getBytes(StandardCharsets.UTF_8));
+                        saida.flush();
+
+                        System.out.println(
+                                "Acesso fora da pasta bloqueado.");
+
+                        cliente.close();
+
+                        System.out.println();
+                        System.out.println("Aguardando conexoes...\n");
+                        continue;
+                    }
+
+                    if (!arquivoCanonico.exists()
+                            || !arquivoCanonico.isFile()) {
+
+                        String resposta = "ERROR FILE_NOT_FOUND\n";
+
+                        saida.write(
+                                resposta.getBytes(StandardCharsets.UTF_8));
+                        saida.flush();
+
+                        System.out.println(
+                                "Arquivo nao encontrado: "
+                                        + nomeArquivo);
+
+                    } else {
+
+                        long tamanho = arquivoCanonico.length();
+
+                        String cabecalho = "OK " + tamanho + "\n";
+
+                        saida.write(
+                                cabecalho.getBytes(StandardCharsets.UTF_8));
+                        saida.flush();
+
+                        FileInputStream arquivoEntrada = new FileInputStream(arquivoCanonico);
+
+                        byte[] buffer = new byte[8192];
+                        int bytesLidos;
+
+                        while ((bytesLidos = arquivoEntrada.read(buffer)) != -1) {
+
+                            saida.write(
+                                    buffer,
+                                    0,
+                                    bytesLidos);
+                        }
+
+                        saida.flush();
+                        arquivoEntrada.close();
+
+                        System.out.println(
+                                "Arquivo enviado: "
+                                        + nomeArquivo
+                                        + " ("
+                                        + tamanho
+                                        + " bytes)");
+                    }
+
+                } catch (IOException e) {
+
+                    System.out.println(
+                            "Erro na comunicacao: "
+                                    + e.getMessage());
+                }
+
                 cliente.close();
-                serverSocket.close();
-                return;
+
+                System.out.println();
+                System.out.println("Aguardando conexoes...\n");
             }
-
-            String nomeArquivo = partes[1];
-
-            File arquivo = new File("arquivos", nomeArquivo);
-
-            if (arquivo.exists() && arquivo.isFile()) {
-                System.out.println(
-                        "Arquivo encontrado: " + nomeArquivo
-                );
-            } else {
-                System.out.println(
-                        "Arquivo não encontrado: " + nomeArquivo
-                );
-            }
-
-            cliente.close();
-            serverSocket.close();
 
         } catch (IOException e) {
+
             System.out.println(
-                    "Erro no servidor: " + e.getMessage()
-            );
+                    "Erro no servidor: "
+                            + e.getMessage());
         }
     }
 }
